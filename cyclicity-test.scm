@@ -63,3 +63,32 @@
 (define b '((1 2) 3))
 (set-cdr! (car b) b)
 (printf "~s ~s ~s~n" (cyclic-list? b) (rec-cyclic-list? b) (cyclic-value? b))
+
+(define check-silently #f)
+(define check-quote
+  (lambda (arg)
+    (cond
+      [(number? arg) #t]
+      [(boolean? arg) #t]
+      [(char? arg) #t]
+      [(string? arg) #t]
+      [(symbol? arg) #t]
+      [(null? arg) #t]
+      [(pair? arg)
+        (let* ([first (check-quote (car arg))] [second (check-quote (cdr arg))])
+          (and first second))]
+      [else ; should not get here
+        (begin
+          (unless check-silently
+            (printf "check-quote -- not recognised (not a number, boolean, char, string, symbol nor pair): ~s~n" arg))
+          #f)])))
+
+(newline)
+(printf "~s~n" (check-quote (lambda (x) x)))
+(printf "~s~n" (number? '(lambda (x) x)))
+(printf "~s~n" (boolean? '(lambda (x) x)))
+(printf "~s~n" (char? '(lambda (x) x)))
+(printf "~s~n" (string? '(lambda (x) x)))
+(printf "~s~n" (symbol? '(lambda (x) x)))
+(printf "~s~n" (null? '(lambda (x) x)))
+(printf "~s~n" (pair? '(lambda (x) x)))
