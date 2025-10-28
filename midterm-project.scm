@@ -25,7 +25,7 @@
 
 ;;;;;;;;;;
 
-(define check-program
+(define check-program-nocheck
   (lambda (v)
     (cond
      [(null? v)
@@ -38,6 +38,15 @@
         (unless check-silently
           (printf "check-program -- unrecognized program input: ~s~n" v))
         #f)])))
+
+(define check-program
+  (lambda (v)
+    (if (cyclic-value? v)
+        (begin
+          (unless check-silently
+            (printf))
+          #f)
+        (check-program-nocheck v))))
 
 ;;;;;;;;;;
 
@@ -440,17 +449,6 @@
   (lambda (symbol)
     (memq symbol '(define, time, if, cond, else, case, and, or, let, let*,
                     letrec, begin, unless, quote, lambda, and trace-lambda))))
-
-(define list-strictly-longer-than?
-  (lambda (v n)
-    (letrec ([visit (lambda (v i)
-                      (and (pair? v)
-                           (or (= i 0)
-                               (visit (cdr v)
-                                      (- i 1)))) )])
-      (if (>= n 0)
-          (visit v n)
-          (errorf 'list-strictly-longer-than? "negative length: ~s" n)))))
 
 ;;; reads an entire file as a list of Scheme data
 ;;; use: (read-file "filename.scm")
