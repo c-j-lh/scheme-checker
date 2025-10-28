@@ -31,13 +31,14 @@
      [(null? v)
       #t]
      [(pair? v)
-      (and (check-toplevel-form (car v))
-           (check-program (cdr v)))]
+      (and (check-toplevel-form-nocheck (car v))
+           (check-program-nocheck (cdr v)))]
      [else
       (begin
         (unless check-silently
           (printf "check-program -- unrecognized program input: ~s~n" v))
         #f)])))
+
 
 (define check-program
   (lambda (v)
@@ -72,7 +73,7 @@
                        [else #f]))])
       (loop v 0))))
 
-(define check-toplevel-form
+(define check-toplevel-form-nocheck
   (lambda (v)
     (let ([analysis-result (and-proper-list?-length v)])
       (if (and (not (equal? analysis-result #f)) (not (null? v)) (equal? (car v) 'define))
@@ -83,6 +84,16 @@
                   (printf "definitions should have 2 arguments: ~s~n" v))
                 #f))
           (check-expression v)))))
+
+
+(define check-toplevel-form
+  (lambda (v)
+    (if (cyclic-value? v)
+      (begin
+        (unless check-silently
+          (printf))
+        #f)
+      (check-toplevel-form-nocheck v))))
 ;;;;;;;;;;
 
 ;;;;;;;;;;
@@ -97,7 +108,7 @@
 (define check-definition
   (lambda (name definiens)
     (and (check-variable name)
-         (check-expression-helper definiens))))
+         (check-expression-nocheck definiens))))
 
 (define check-cond
   (lambda (clauses)
@@ -128,7 +139,7 @@
                                    #f)
                                  (if (= len 2)
                                    (begin
-                                     (check-expression-helper (cadr clause))
+                                     (check-expression-nocheck (cadr clause))
                                      #t)
                                    (begin
                                      (unless check-silently
@@ -137,19 +148,19 @@
                              ;; single expression
                              [(= len 1)
                                (begin
-                                 (check-expression-helper (car clause))
+                                 (check-expression-nocheck (car clause))
                                  (loop rest))]
                              ;; two expressions
                              [(= len 2)
                                (begin
-                                 (check-expression-helper (car clause))
-                                 (check-expression-helper (cadr clause))
+                                 (check-expression-nocheck (car clause))
+                                 (check-expression-nocheck (cadr clause))
                                  (loop rest))]
                              ;; => expression
                              [(and (= len 3) (eq? (cadr clause) '=>))
                                (begin
-                                 (check-expression-helper (car clause))
-                                 (check-expression-helper (caddr clause))
+                                 (check-expression-nocheck (car clause))
+                                 (check-expression-nocheck (caddr clause))
                                  (loop rest))]
                              [else
                                (begin
@@ -186,7 +197,7 @@
                                      (printf "`let` binding names must be distinct, duplicate: ~s~n" name))
                                    #f)]
                                [else
-                                 (and (check-expression-helper expression) ; expression should be a valid expression
+                                 (and (check-expression-nocheck expression) ; expression should be a valid expression
                                    (check-bindings (cdr bs) (cons name seen-names)))]))] ; check the rest of the bindings
                          [else
                            (begin
@@ -200,7 +211,7 @@
                        #f)]))])
       (and (list? bindings)
         (check-bindings bindings '())
-        (check-expression-helper expression)))))
+        (check-expression-nocheck expression)))))
 
 
 (define check-letstar
@@ -240,7 +251,7 @@
                         (printf "Error: invalid element ~a found in lambda formals; expected variable symbol or proper/improper list.~n" formals)
                         #f)]))))
       (and (formals-check? lambda-formals '())
-        (check-expression-helper expression)))))
+        (check-expression-nocheck expression)))))
 
 
 
@@ -255,7 +266,7 @@
 
 (define check-application-operands
   (lambda (args)
-    (nonlazy-andmap check-expression-helper args)))
+    (nonlazy-andmap check-expression-nocheck args)))
 
 ;; (define check-quote
 ;;   (trace-lambda cq (arg)
@@ -286,7 +297,7 @@
 ;;;;;;;;;;
 
 
-(define check-expression-helper
+(define check-expression-nocheck
   (lambda (v)
     (cond
      [(number? v) #t]
@@ -301,27 +312,27 @@
         (case operator ;;;;;;;
           [(time)
            (if (equal? len 1)
-               (check-expression-helper (car operands))
+               (check-expression-nocheck (car operands))
                (begin
                  (unless check-silently
                    (printf "`time` should have exactly 1 argument~n"))
                  #f))]
           [(if)
            (if (equal? len 3)
-               (nonlazy-andmap check-expression-helper operands)
+               (nonlazy-andmap check-expression-nocheck operands)
                (begin
                  (unless check-silently
                    (printf "`if` should have exactly 3 arguments: ~s~n" v))
                  #f))]
           [(unless)
            (if (equal? len 2)
-               (nonlazy-andmap check-expression-helper operands)
+               (nonlazy-andmap check-expression-nocheck operands)
                (begin
                  (unless check-silently
                    (printf "`unless` should have exactly 2 arguments: ~s~n" v))
                  #f))]
           [(and or)
-           (nonlazy-andmap check-expression-helper operands)]
+           (nonlazy-andmap check-expression-nocheck operands)]
           [(cond)
            (check-cond operands)]
           [(case)
@@ -354,7 +365,7 @@
                  #f))]
           [(begin)
            (if (>= len 1)
-               (nonlazy-andmap check-expression-helper operands)
+               (nonlazy-andmap check-expression-nocheck operands)
                (begin
                  (unless check-silently
                    (printf "`begin` should have at least 1 argument: ~s~n" v))
@@ -382,15 +393,15 @@
                  #f))]
           [else  ; function application
            ;; let* instead of let to make sure head is computed before rest
-           (let* ([head (check-expression-helper operator)] [rest (check-application-operands operands)])
+           (let* ([head (check-expression-nocheck operator)] [rest (check-application-operands operands)])
              (begin
                (unless (or head check-silently)
-                 (printf "check-expression-helper -- unrecognized input - not a function application: ~s~n" v))
+                 (printf "check-expression-nocheck -- unrecognized input - not a function application: ~s~n" v))
                (and head rest)))]))]
      [else
       (begin
         (unless check-silently
-          (printf "check-expression-helper -- unrecognised input (pairs and empty lists are not valid expressions): ~s~n" v))
+          (printf "check-expression-nocheck -- unrecognised input (pairs and empty lists are not valid expressions): ~s~n" v))
         #f)])))
 
 (define check-expression
@@ -400,7 +411,7 @@
         (unless check-silently
           (begin (printf "check-program: expression must not be a cyclic list: ~s~n" v)
                  #f))
-        (check-expression-helper v)))))
+        (check-expression-nocheck v)))))
 
 
 ;; author: Prof Olivier Danvy
@@ -467,7 +478,7 @@
 (define check-file
   (lambda (filename)
     (if (string? filename)
-        (check-program (read-file filename))
+        (check-program-nocheck (read-file filename)) ; output of read-file will not be cyclic
         (errorf 'check-file "not a string: ~s" filename))))
 
 ;;;;;;;;
