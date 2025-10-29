@@ -343,94 +343,94 @@
               (unless check-silently
                 (printf "check-expression -- unrecognised input (pairs and empty lists are not valid expressions): ~s~n" v))
               #f)
-            (let* ([operator (car v)]
-                   [operands (cdr v)]
+            (let* ([first (car v)]
+                   [rest (cdr v)]
                    [len (1- analysis-result)])
-              (case operator ;;;;;;;
+              (case first ;;;;;;;
                 [(time)
                  (if (equal? len 1)
-                     (check-expression (car operands))
+                     (check-expression (car rest))
                      (begin
                        (unless check-silently
                          (printf "`time` should have exactly 1 argument~n"))
                        #f))]
                 [(if)
                  (if (equal? len 3)
-                     (strict-andmap check-expression operands)
+                     (strict-andmap check-expression rest)
                      (begin
                        (unless check-silently
                          (printf "`if` should have exactly 3 arguments: ~s~n" v))
                        #f))]
                 [(unless)
                  (if (equal? len 2)
-                     (strict-andmap check-expression operands)
+                     (strict-andmap check-expression rest)
                      (begin
                        (unless check-silently
                          (printf "`unless` should have exactly 2 arguments: ~s~n" v))
                        #f))]
                 [(and or)
-                 (strict-andmap check-expression operands)]
+                 (strict-andmap check-expression rest)]
                 [(cond)
-                 (check-cond operands)]
+                 (check-cond rest)]
                 [(case)
                  (if (>= len 1)
-                     (check-case (car operands) (cdr operands))
+                     (check-case (car rest) (cdr rest))
                      (begin
                        (unless check-silently
                          (printf "`case` should have at least 1 argument: ~s~n" v))
                        #f))]
                 [(let)
                  (if (equal? len 2)
-                     (check-let (car operands) (cadr operands))
+                     (check-let (car rest) (cadr rest))
                      (begin
                        (unless check-silently
                          (printf "`let` should have exactly 2 arguments, bindings and expression: ~s~n" v))
                        #f))]
                 [(let*)
                  (if (equal? len 2)
-                     (check-letstar (car operands) (cadr operands))
+                     (check-letstar (car rest) (cadr rest))
                      (begin
                        (unless check-silently
                          (printf "`let*` should have exactly 2 arguments, bindings and expression: ~s~n" v))
                        #f))]
                 [(letrec)
                  (if (equal? len 2)
-                     (check-letrec (car operands) (cadr operands))
+                     (check-letrec (car rest) (cadr rest))
                      (begin
                        (unless check-silently
                          (printf "`letrec` should have exactly 2 arguments, bindings and expression: ~s~n" v))
                        #f))]
                 [(begin)
                  (if (>= len 1)
-                     (strict-andmap check-expression operands)
+                     (strict-andmap check-expression rest)
                      (begin
                        (unless check-silently
                          (printf "`begin` should have at least 1 argument: ~s~n" v))
                        #f))]
                 [(quote)
                  (if (equal? len 1)
-                     (check-quote (car operands))
+                     (check-quote (car rest))
                      (begin
                        (unless check-silently
                          (printf "`quote` should have exactly 1 argument: ~s~n" v))
                        #f))]
                 [(lambda)
                  (if (equal? len 2)
-                     (check-lambda (car operands) (cadr operands))
+                     (check-lambda (car rest) (cadr rest))
                      (begin
                        (unless check-silently
                          (printf "`lambda` should have exactly 2 arguments: ~s~n" v))
                        #f))]
                 [(trace-lambda)
                  (if (equal? len 3)
-                     (check-trace-lambda (car operands) (cadr operands) (caddr operands))
+                     (check-trace-lambda (car rest) (cadr rest) (caddr rest))
                      (begin
                        (unless check-silently
                          (printf "`trace-lambda` should have exactly 3 arguments: ~s~n" v))
                        #f))]
                 [else  ; function application
                  ;; let* instead of let to make sure head is computed before rest
-                 (let* ([head (check-expression operator)] [rest (check-application-operands operands)])
+                 (let* ([head (check-expression first)] [rest (check-application-operands rest)])
                    (begin
                      (unless (or head check-silently)
                        (printf "check-expression -- unrecognized input - not a function application: ~s~n" v))
