@@ -483,8 +483,8 @@
 
 (define keyword?
   (lambda (symbol)
-    (memq symbol '(define, time, if, cond, else, case, and, or, let, let*,
-                    letrec, begin, unless, quote, lambda, and trace-lambda))))
+    (memq symbol '(define time if cond else case and or let let*
+                    letrec begin unless quote lambda trace-lambda))))
 
 (define list-strictly-longer-than?
   (lambda (v n)
