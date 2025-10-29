@@ -10,13 +10,12 @@
 
 ;; doesn't check cyclicity
 (define nonlazy-andmap
-  (lambda (function args)
-    (letrec ([loop (lambda (args acc)
+  (lambda (p args)
+    (letrec ([loop (lambda (args)
                      (cond
                       [(null? args)
                        acc]
                       [(pair? args)
-                       ;; let* instead of let to make sure head is computed before rest
                        (loop (cdr args) (and (function (car args)) acc))]
                       [else
                        (errorf 'nonlazy-andmap "not a proper list")]))])
