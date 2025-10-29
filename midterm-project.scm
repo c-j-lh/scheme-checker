@@ -9,7 +9,7 @@
   #f)
 
 ;; doesn't check cyclicity
-(define nonlazy-andmap
+(define strict-andmap
   (lambda (p args)
     (letrec ([loop (lambda (args)
                      (cond
@@ -18,7 +18,7 @@
                       [(pair? args)
                        (loop (cdr args) (and (function (car args)) acc))]
                       [else
-                       (errorf 'nonlazy-andmap "not a proper list")]))])
+                       (errorf 'strict-andmap "not a proper list")]))])
       (loop args #t))))
 
 
@@ -297,7 +297,7 @@
 ;; yaqi
 (define check-application-operands
   (lambda (args)
-    (nonlazy-andmap check-expression-helper args)))
+    (strict-andmap check-expression-helper args)))
 
 (define check-quote
  (lambda (arg)
@@ -351,20 +351,20 @@
                        #f))]
                 [(if)
                  (if (equal? len 3)
-                     (nonlazy-andmap check-expression-helper operands)
+                     (strict-andmap check-expression-helper operands)
                      (begin
                        (unless check-silently
                          (printf "`if` should have exactly 3 arguments: ~s~n" v))
                        #f))]
                 [(unless)
                  (if (equal? len 2)
-                     (nonlazy-andmap check-expression-helper operands)
+                     (strict-andmap check-expression-helper operands)
                      (begin
                        (unless check-silently
                          (printf "`unless` should have exactly 2 arguments: ~s~n" v))
                        #f))]
                 [(and or)
-                 (nonlazy-andmap check-expression-helper operands)]
+                 (strict-andmap check-expression-helper operands)]
                 [(cond)
                  (check-cond operands)]
                 [(case)
@@ -397,7 +397,7 @@
                        #f))]
                 [(begin)
                  (if (>= len 1)
-                     (nonlazy-andmap check-expression-helper operands)
+                     (strict-andmap check-expression-helper operands)
                      (begin
                        (unless check-silently
                          (printf "`begin` should have at least 1 argument: ~s~n" v))
