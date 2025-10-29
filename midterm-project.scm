@@ -30,18 +30,19 @@
         (begin
           (unless check-silently (printf "check-program: expression must not be a cyclic list: ~s~n" v))
           #f)
-        (cond
-          [(null? v)
-            #t]
-          [(pair? v)
-            (let* ([head (check-toplevel-form (car v))]
-                    [rest (check-program (cdr v))])
-              (and head rest))]
-          [else
-            (begin
-              (unless check-silently
-                (printf "check-program -- unrecognized program input: ~s~n" v))
-              #f)]))))
+        (letrec ([loop (lambda (v) (cond
+                         [(null? v)
+                           #t]
+                         [(pair? v)
+                           (let* ([head (check-toplevel-form (car v))]
+                                   [rest (loop (cdr v))])
+                             (and head rest))]
+                         [else
+                           (begin
+                             (unless check-silently
+                               (printf "check-program -- unrecognized program input: ~s~n" v))
+                             #f)]))])
+          (loop v)))))
 
 ;;;;;;;;;;
 
