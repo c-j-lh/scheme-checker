@@ -223,7 +223,7 @@
                                      (printf "`let-star' binding name should be a variable (non-keyword symbol): ~s~n" name))
                                    #f)]
                                ;; Check that the expression part of the binding is a valid expression
-                               [(not (check-expression exp))
+                               [(not (check-expression-helper exp))
                                  (begin
                                    (unless check-silently
                                      (printf "`let-star' binding expression is not valid: ~s~n" exp))
@@ -244,7 +244,7 @@
                        #f)]))])
       (and (list? bindings)
         (check-bindings bindings)
-        (check-expression expression)))))
+        (check-expression-helper expression)))))
 
 ;; clara
 (define check-letrec
