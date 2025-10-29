@@ -11,12 +11,12 @@
 ;; doesn't check cyclicity
 (define strict-andmap
   (lambda (p args)
-    (letrec ([loop (lambda (args)
+    (letrec ([loop (lambda (args acc)
                      (cond
                       [(null? args)
                        acc]
                       [(pair? args)
-                       (loop (cdr args) (and (function (car args)) acc))]
+                       (loop (cdr args) (and (p (car args)) acc))]
                       [else
                        (errorf 'strict-andmap "not a proper list")]))])
       (loop args #t))))
@@ -436,8 +436,8 @@
     (and
      (if (cyclic-value? v)
          (begin
-           (unless check-silently (printf "check-program: expression must not be a cyclic list: ~s~n" v)
-           #f))
+           (unless check-silently (printf "check-program: expression must not be a cyclic list: ~s~n" v))
+           #f)
          (check-expression-helper v)))))
 
 
