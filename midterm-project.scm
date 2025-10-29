@@ -30,8 +30,9 @@
      [(null? v)
       #t]
      [(pair? v)
-      (and (check-toplevel-form (car v))
-           (check-program (cdr v)))]
+      (let* ([head (check-toplevel-form (car v))]
+             [rest (check-program (cdr v))])
+        (and head rest))]
      [else
       (begin
         (unless check-silently
