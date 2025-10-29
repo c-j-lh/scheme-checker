@@ -90,6 +90,7 @@
     (and (check-variable name)
          (check-expression-helper definiens))))
 
+;; aleah
 (define check-cond
   (lambda (clauses)
     (if (null? clauses)
@@ -149,10 +150,13 @@
                                     #f)]))))))])
           (loop clauses)))))
 
+
+;; lucy
 (define check-case  ; implement in terms of check-cond
   (lambda (expression clauses)
     (printf "'check-case not implemented yet~n")))
 
+;; howen
 (define check-let
   (lambda (bindings expression)
     (letrec ([check-bindings
@@ -194,7 +198,7 @@
            (check-expression-helper expression)))))
 
 
-
+;; jiajie
 (define check-letstar
   (lambda (bindings expression)
     (letrec ([check-bindings
@@ -242,11 +246,12 @@
         (check-bindings bindings)
         (check-expression expression)))))
 
-
+;; clara
 (define check-letrec
   (lambda (bindings expression)
     (printf "'check-letrec not implemented yet~n")))
 
+;; kelly
 (define check-lambda
   (lambda (lambda-formals expression)
     (letrec (
@@ -257,38 +262,39 @@
                  [(symbol? formals)
                   (if (member formals seen)
                       (begin
-                        (printf "Error: duplicate variable ~a detected in lambda formals.~n" formals)
+                        (unless check-silently (printf "Error: duplicate variable ~a detected in lambda formals.~n" formals))
                         #f)
                       #t)]
                  ;; checks improper / proper lists
                  [(pair? formals)
                   (if (not (symbol? (car formals)))
                       (begin
-                        (printf "Error: non-symbol variable ~a found in lambda formals list.~n" (car formals))
+                        (unless check-silently (printf "Error: non-symbol variable ~a found in lambda formals list.~n" (car formals)))
                         #f)
                       (if (member (car formals) seen)
                           (begin
-                            (printf "Error: duplicate variable ~a detected in lambda formals list.~n" (car formals))
+                            (unless check-silently (printf "Error: duplicate variable ~a detected in lambda formals list.~n" (car formals)))
                             #f)
                           (formals-check? (cdr formals) (cons (car formals) seen))))]
                  [else
                   (begin
-                    (printf "Error: invalid element ~a found in lambda formals; expected variable symbol or proper/improper list.~n" formals)
+                    (unless check-silently (printf "Error: invalid element ~a found in lambda formals; expected variable symbol or proper/improper list.~n" formals))
                     #f)]))))
       (and (formals-check? lambda-formals '())
            (check-expression-helper expression)))))
 
 
-
+;; kelly
 (define check-trace-lambda
   (lambda (variable lambda-formals expression)
     ;; check variable
     (if (not (symbol? variable))
         (begin
-          (printf "Error: trace-lambda variable ~a is not a valid symbol.~n" variable)
+          (unless check-silently (printf "Error: trace-lambda variable ~a is not a valid symbol.~n" variable))
           #f)
         (check-lambda lambda-formals expression))))
 
+;; yaqi
 (define check-application-operands
   (lambda (args)
     (nonlazy-andmap check-expression-helper args)))
@@ -429,9 +435,9 @@
   (lambda (v)
     (and
      (if (cyclic-value? v)
-         (unless check-silently
-           (begin (printf "check-program: expression must not be a cyclic list: ~s~n" v)
-                  #f))
+         (begin
+           (unless check-silently (printf "check-program: expression must not be a cyclic list: ~s~n" v)
+           #f))
          (check-expression-helper v)))))
 
 
