@@ -102,7 +102,7 @@
    [(null? clauses)
     (unless check-silently
       (printf "'cond must have at least one clause as its arguments~n"))
-    #f (tg://search_hashtag?hashtag=f)]
+    #f]
 
    ;; else process current clause and recurse
    [else
@@ -112,34 +112,34 @@
        [(not (list? clause))
         (unless check-silently
           (printf "`cond` clause must be a list: ~s~n" clause))
-        #f (tg://search_hashtag?hashtag=f)]
+        #f]
 
        [(eq? (car clause) 'else)
         (cond
          [(not (null? rest))
           (unless check-silently
             (printf "`else` clause must be last: ~s~n" clause))
-          #f (tg://search_hashtag?hashtag=f)]
+          #f]
          [(not (= (length clause) 2))
           (unless check-silently
             (printf "`else` clause must have exactly one expression: ~s~n" clause))
-          #f (tg://search_hashtag?hashtag=f)]
+          #f]
          [else
           (check-expression (cadr clause))
-          #t (tg://search_hashtag?hashtag=t)])]
+          #t])]
 
        [(= (length clause) 1)
         (check-expression (car clause))
                                         ; only recurse if rest not empty
         (if (null? rest)
-            #t (tg://search_hashtag?hashtag=t)
+            #t
             (check-cond rest))]
 
        [(= (length clause) 2)
         (check-expression (car clause))
         (check-expression (cadr clause))
         (if (null? rest)
-            #t (tg://search_hashtag?hashtag=t)
+            #t
             (check-cond rest))]
 
        [(and (= (length clause) 3)
@@ -147,13 +147,13 @@
         (check-expression (car clause))
         (check-expression (caddr clause))
         (if (null? rest)
-            #t (tg://search_hashtag?hashtag=t)
+            #t
             (check-cond rest))]
 
        [else
         (unless check-silently
           (printf "`cond` clause has invalid form: ~s~n" clause))
-        #f (tg://search_hashtag?hashtag=f)]))]))
+        #f]))]))
 
 
 ;; lucy
@@ -284,7 +284,7 @@
                   (let ([bcur (car binds)])
                     (cond
                      ;; Check if current car is a proper binding with a name and expression
-                     [(and (proper-list-of-given-length? binds 2))
+                     [(and (proper-list-of-given-length? bcur 2))
                       (let ([name (car bcur)]
                             [exp (cadr bcur)])
                         (cond
@@ -306,17 +306,20 @@
                      [else
                       (begin
                         (unless check-silently
-                          (printf "each `let-star` binding must be a list of the form (name value): ~s~n" b))
+                          (printf "each `let-star` binding must be a list of the form (name value): ~s~n" bcur))
                         #f)]))]
                  ;; Definitely not a proper binding
                  [else
                   (begin
                     (unless check-silently
-                      (printf "`let-star` bindings must be a proper list: ~s~n" bindings))
+                      (printf "`let-star` bindings must be a proper list: ~s~n" binds))
                     #f)]))])
       (and (list? bindings)
            (check-bindings bindings)
            (check-expression expression)))))
+
+
+
 
 ;; clara
 (define check-letrec
@@ -402,7 +405,7 @@
      [(boolean? v) #t]
      [(char? v) #t]
      [(string? v) #t]
-     [(symbol? v) #t]
+     [(check-variable v) #t]
      [else
       (let ([analysis-result (and-proper-list?-length v)])
         (if (or (equal? analysis-result #f) (null? v))
@@ -413,7 +416,7 @@
             (let* ([first (car v)]
                    [rest (cdr v)]
                    [len (1- analysis-result)])
-              (case first ;;;;;;;
+              (case first
                 [(time)
                  (if (equal? len 1)
                      (check-expression (car rest))
@@ -760,9 +763,10 @@
           '((let* () 10)))])
   (printf "Test let-star Empty Bindings: ~s~n~n" b))
 ;; Valid
-(let ([b (check-program
-          '((let* ([x 10] [y 20]) x)))])
-  (printf "Test let-star Multiple Bindings: ~s~n~n" b))
+(let ([bb (check-program
+           '((let* ([x 10] [y 20]) x)))])
+  (printf "Test let-star Multiple Bindings: ~s~n~n" bb))
+
 ;; Valid
 (let ([b (check-program
           '((let* ([x 10] [x 20]) x)))])

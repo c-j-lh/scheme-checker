@@ -92,3 +92,33 @@
 (printf "~s~n" (symbol? '(lambda (x) x)))
 (printf "~s~n" (null? '(lambda (x) x)))
 (printf "~s~n" (pair? '(lambda (x) x)))
+
+
+;; doesn't check cyclicity
+(define strict-andmap
+  (lambda (p args)
+    (letrec ([loop (lambda (args acc)
+                     (cond
+                       [(null? args)
+                         acc]
+                       [(pair? args)
+                         (loop (cdr args) (and (p (car args)) acc))]
+                       [else
+                         (errorf 'strict-andmap "not a proper list")]))])
+      (loop args #t))))
+
+
+(define strict-andmap2
+  (lambda (p args)
+    (letrec ([loop (lambda (args)
+                     (cond
+                       [(null? args)
+                        acc]
+                       [(pair? args)
+                        (loop (cdr args) (and (p (car args))))]
+                       [else
+                        (errorf 'strict-andmap "not a proper list")]))])
+      (loop args #t))))
+(printf "~s~n" (strict-andmap2 number? '(1 #t "")))
+(printf "~s~n" (strict-andmap2 number? (list 1 2 3)))
+;(printf "~s~n" (strict-andmap number? (list (trace 1) (trace 2) (trace 3))))
