@@ -1,7 +1,12 @@
 ;;; midterm-project.scm
-;;; Time-stamp: <2025-10-14 02:10:03 olivier>
+;;; Checker for a Scheme subset, based on
+;;; https://delimited-continuation.github.io/CS2104/2025-2026_Sem1/midterm-project.html.
+;;;
+;;; Time-stamp: <2025-11-03 20:00:00 leheng>
 ;;; PLC 2025 - CS2104 2025-2026, Sem1 *)
-;;; Olivier Danvy <danvy@nus.edu.sg>
+;;; Original template by Olivier Danvy <danvy@nus.edu.sg>, but heavily edited since.
+;;; Chuah Jia Jie, Yap Ho Wen, Yang Yaqi, Wang Aleah, Goussanou Clara,
+;;; Zhang Kelly, Wu Lucy Shuai, Chieu Le Heng
 
 ;;;;;;;;;;
 
