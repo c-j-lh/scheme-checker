@@ -288,37 +288,76 @@
     (printf "'check-letrec not implemented yet~n")))
 
 ;; kelly
+(define check-duplicates?
+  (lambda (v vs)
+    (letrec ((check-vs
+               (lambda (vls)
+                 (cond
+                   [(null? vls)
+                     #f]
+                   [(symbol? vls)
+                     (eq? v vls)]
+                   [(pair? vls)
+                     (or (eq? v (car vls))
+                       (check-vs (cdr vls)))]
+                   [else
+                     #f]))))
+      (check-vs vs))))
+
+
+(define check-lambda-formals
+  (lambda (formals)
+    (cond
+      [(null? formals)
+        #t]
+
+      [(symbol? formals)
+        (if (keyword? formals)
+          (begin
+            (unless check-silently
+              (printf "not a proper formal parameter: ~s~n" formals))
+            #f)
+          #t)]
+
+      [(pair? formals)
+        (let* ([head (car formals)]
+                [tail (cdr formals)])
+          (and (if (or (not (symbol? head))
+                     (keyword? head))
+                 (begin
+                   (unless check-silently
+                     (printf "not a proper formal parameter: ~s~n" head))
+                   #f)
+                 #t)
+            (if (check-duplicates? head tail)
+              (begin
+                (unless check-silently
+                  (printf "duplicates found: ~s~n" head))
+                #f)
+              #t)
+            (check-lambda-formals tail)))]
+      [else
+        (begin
+          (unless check-silently
+            (printf "check-lambda-formals -- unrecognized input: ~s~n" formals))
+          #f)])))
+
+
 (define check-lambda
   (lambda (lambda-formals expression)
-    (letrec (
-             (formals-check?
-              (lambda (formals seen)
-                (cond
-                 [(null? formals) #t]
-                 [(symbol? formals)
-                  (if (member formals seen)
-                      (warn "Error: duplicate variable ~a detected in lambda formals.~n" formals)
-                      #t)]
-                 ;; checks improper / proper lists
-                 [(pair? formals)
-                  (if (not (symbol? (car formals)))
-                      (warn "Error: non-symbol variable ~a found in lambda formals list.~n" (car formals))
-                      (if (member (car formals) seen)
-                          (warn "Error: duplicate variable ~a detected in lambda formals list.~n" (car formals))
-                          (formals-check? (cdr formals) (cons (car formals) seen))))]
-                 [else
-                  (warn "Error: invalid element ~a found in lambda formals; expected variable symbol or proper/improper list.~n" formals)]))))
-      (and (formals-check? lambda-formals '())
-           (check-expression expression)))))
+    (and (check-lambda-formals lambda-formals)
+      (check-expression expression))))
 
 
-;; kelly
 (define check-trace-lambda
   (lambda (variable lambda-formals expression)
-    ;; check variable
-    (if (not (symbol? variable))
-        (warn "Error: trace-lambda variable ~a is not a valid symbol.~n" variable)
-        (check-lambda lambda-formals expression))))
+    (if (or (not (symbol? variable))
+          (keyword? variable))
+      (begin
+        (printf "Error: trace-lambda variable ~a is not a valid symbol.~n" variable)
+        #f)
+      #t)
+    (check-lambda lambda-formals expression))))
 
 ;; yaqi
 (define check-application-operands
