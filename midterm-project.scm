@@ -114,22 +114,13 @@
   (lambda (b1 b2)
     (and b1 b2)))
 
-;; returns #t if v is a proper list of exactly n elements
-(define proper-list-of-length
-  (lambda (v n)
-    (cond
-     [(null? v) (= n 0)]
-     [(pair? v)
-      (and (> n 0)
-           (proper-list-of-length (cdr v) (- n 1)))]
-     [else #f])))
 
 ;; checks that else clause has valid syntax
 (define check-else-clause
   (lambda (c origin)
     (cond
      ;; valid else clause with one expression
-     [(and (proper-list-of-length c 2)
+     [(and (proper-list-of-given-length? c 2)
            (equal? (car c) 'else))
       (check-expression (cadr c))]
 
@@ -142,14 +133,14 @@
     (let ([check-cond-clause
            (lambda (clause)
              (cond
-              [(proper-list-of-length clause 1)
+              [(proper-list-of-given-length? clause 1)
                (check-expression (car clause))]
 
-              [(proper-list-of-length clause 2)
+              [(proper-list-of-given-length? clause 2)
                (strict-and (check-expression (car clause))
                            (check-expression (cadr clause)))]
 
-              [(and (proper-list-of-length clause 3)
+              [(and (proper-list-of-given-length? clause 3)
                     (equal? (cadr clause) '=>))
                (strict-and (check-expression (car clause))
                            (check-expression (caddr clause)))]
