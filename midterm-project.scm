@@ -22,6 +22,11 @@
         (apply printf fstring args))
       #f)))
 
+;; checks that both arguments evaluate to true
+(define strict-and
+  (lambda (b1 b2)
+    (and b1 b2)))
+
 ;; doesn't check cyclicity
 (define strict-andmap
   (lambda (p args)
@@ -102,19 +107,6 @@
          (check-expression definiens))))
 
 ;; aleah
-(define warn
-  (lambda (fstring . args)
-    (begin
-      (unless check-silently
-        (apply printf fstring args))
-      #f)))
-
-;; checks that both arguments evaluate to true
-(define strict-and
-  (lambda (b1 b2)
-    (and b1 b2)))
-
-
 ;; checks that else clause has valid syntax
 (define check-else-clause
   (lambda (c origin)
@@ -508,12 +500,12 @@
 ;;author: Prof Olivier Danvy
 (define proper-list-of-given-length?
   (lambda (v n)
-    (or (and (null? v)
-             (= n 0))
-        (and (pair? v)
-             (> n 0)
-             (proper-list-of-given-length? (cdr v)
-                                           (- n 1))))))
+    (cond
+      [(null? v) (= n 0)]
+      [(pair? v)
+        (and (> n 0)
+          (proper-list-of-given-length? (cdr v) (- n 1)))]
+      [else #f])))
 
 ;;;;;;;;;;
 ;;; auxiliaries:
