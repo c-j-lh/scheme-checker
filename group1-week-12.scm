@@ -152,8 +152,9 @@
 (define c_re03_6
   (lambda (ns)
     (and (pair? ns)
-         (or (= (car ns) 10)
-             (= (car ns) 11))
+         (let ([n (car ns)])
+           (or (= n 10)
+               (= n 11)))
          (null? (cdr ns)))))
 
 (unless (test_c_re03_6 c_re03_6)
@@ -346,10 +347,11 @@
            (letrec ([loop (lambda (ns)
                             (or (k ns)
                                 (and (pair? ns)
-                                     (or (= (car ns) 20)
-                                         (= (car ns) 21))
-                                     (let ([ns (cdr ns)])
-                                       (loop ns)))))]
+                                     (let ([n (car ns)]
+                                           [ns (cdr ns)])
+                                       (and (or (= n 20)
+                                                (= n 21))
+                                            (loop ns))))))]
                     [k (lambda (ns)
                          (and (pair? ns)
                               (= (car ns) 30)
@@ -456,10 +458,11 @@
   (lambda (ns)
     (or (null? ns)
         (and (pair? ns)
-             (or (= (car ns) 10)
-                 (= (car ns) 20))
-             (let ([ns (cdr ns)])
-               (c_re04_7 ns))))))
+             (let ([n (car ns)]
+                   [ns (cdr ns)])
+               (and (or (= n 10)
+                        (= n 20))
+                    (c_re04_7 ns)))))))
 
 (unless (test_c_re04_7 c_re04_7)
   (printf "test_c_re04_7 failed"))
@@ -575,11 +578,12 @@
          (let ([ns (cdr ns)])
            (letrec ([loop (lambda (ns)
                             (and (pair? ns)
-                                 (or (= (car ns) 20)
-                                     (= (car ns) 21))
-                                 (let ([ns (cdr ns)])
-                                   (or (loop ns)
-                                       (k ns)))))]
+                                 (let ([n (car ns)]
+                                       [ns (cdr ns)])
+                                   (and (or (= n 20)
+                                            (= n 21))
+                                        (or (loop ns)
+                                            (k ns))))))]
                     [k (lambda (ns)
                          (and (pair? ns)
                               (= (car ns) 30)
@@ -693,11 +697,12 @@
 (define c_re05_7
   (lambda (ns)
     (and (pair? ns)
-         (or (= (car ns) 10)
-             (= (car ns) 20))
-         (let ([ns (cdr ns)])
-           (or (c_re05_7 ns)
-               (null? ns))))))
+         (let ([n (car ns)]
+               [ns (cdr ns)])
+           (and (or (= n 10)
+                    (= n 20))
+                (or (c_re05_7 ns)
+                    (null? ns)))))))
 
 (unless (test_c_re05_7 c_re05_7)
   (printf "test_c_re05_7 failed"))
