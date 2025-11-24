@@ -1,13 +1,59 @@
 ;;; week-12_compiled-regular-expressions.scm
-;;; Time-stamp: <2025-11-14 17:21:47 leheng>
+;;; Time-stamp: <2025-11-24 17:21:47 leheng>
 ;;; PLC 2025 - CS2104 2025-2026, Sem1 *)
 ;;; Olivier Danvy <danvy@nus.edu.sg>
 ;;; Group 1: Chuah Jia Jie <e0959959@u.nus.edu>; Yap Ho Wen <howenyap@u.nus.edu>; Yang Yaqi <e1522259@u.nus.edu>; Wang Aleah <e1518514@u.nus.edu>; Goussanou Clara <e1535596@u.nus.edu>; Zhang Kelly <e1518548@u.nus.edu>; Wu Lucy Shuai <e1521751@u.nus.edu>; Chieu Le Heng <e0454394@u.nus.edu>
 
 ;;;;;;;;;;
 
-;;; Exercise 03
 
+
+;;; -------------------------------------------------------------------------
+;;; Utility functions for random testing
+;;;;;
+(load "group1-week-11.scm")
+
+;; return a random element from a list (python's `random.choice`)
+(define rand-pick
+  (lambda (lst)
+    (list-ref lst (random (length lst)))))
+
+;; return random integer drawn from the given `interesting` list
+(define rand-int
+  (lambda (interesting)
+    (rand-pick interesting)))
+
+;; return random list of length < maxlen, elements from `interesting`
+(define rand-int-list
+  (lambda (maxlen interesting)
+    (let ([len (random maxlen)])
+      (letrec ([build
+                (lambda (i acc)
+                  (if (= i len)
+                      (reverse acc)
+                      (build (1+ i)
+                             (cons (rand-int interesting) acc))))])
+        (build 0 '())))))
+
+;; run N random tests. `interesting` is the list of interesting integer
+;;   candidates to use in test lists.
+(define check-random
+  (lambda (re candidate N maxlen interesting)
+    (letrec ([loop
+              (lambda (i)
+                (if (= i N)
+                    #t
+                    (let ([xs (rand-int-list maxlen interesting)])
+                      (and (boolean=? (match4 re xs) (candidate xs))
+                           (loop (+ i 1))))))])
+      (loop 0))))
+
+
+
+;;; -------------------------------------------------------------------------
+
+
+;;; Exercise 03
 ;;;;;
 (define re03_1
   '(mt))
@@ -16,7 +62,12 @@
   (lambda (candidate)
     (and (candidate '())
          (not (candidate '(())))
-         (not (candidate '(1))))))
+         (not (candidate '(1)))
+         (boolean=? (match4 re03_1 '()) (candidate '()))
+         (boolean=? (match4 re03_1 '(())) (candidate '(())))
+         (boolean=? (match4 re03_1 '(1)) (candidate '(1)))
+         (check-random re03_1 candidate 50 3 '(10 11 12 13))
+         )))
 
 (define c_re03_1
   (lambda (ns)
@@ -35,7 +86,9 @@
          (not (candidate '()))
          (not (candidate '(10 10)))
          (not (candidate '(1 0)))
-         (not (candidate '(11 12))))))
+         (not (candidate '(11 12)))
+         (check-random re03_2 candidate 50 3 '(10 11))
+         )))
 
 (define c_re03_2
   (lambda (ns)
@@ -58,7 +111,8 @@
          (not (candidate '(10 20 30)))
          (not (candidate '(10)))
          (not (candidate '(20)))
-         (not (candidate '(20 10))))))
+         (not (candidate '(20 10)))
+         (check-random re03_3 candidate 50 3 '(10 20 11)))))
 
 
 (define c_re03_3
@@ -85,7 +139,8 @@
          (not (candidate '(10 20)))
          (not (candidate '(10)))
          (not (candidate '(20 30)))
-         (not (candidate '(10 20 30 40))))))
+         (not (candidate '(10 20 30 40)))
+         (check-random re03_4 candidate 50 4 '(10 11 20 30)))))
 
 (define c_re03_4
   (lambda (ns)
@@ -115,7 +170,8 @@
          (not (candidate '(10 20 30)))
          (not (candidate '(10)))
          (not (candidate '(20 30 40)))
-         (not (candidate '(10 20 30 40 50))))))
+         (not (candidate '(10 20 30 40 50)))
+         (check-random re03_5 candidate 50 5 '(10 11 20 30 40)))))
 
 (define c_re03_5
   (lambda (ns)
@@ -147,7 +203,8 @@
          (not (candidate '()))
          (not (candidate '(12)))
          (not (candidate '(10 11)))
-         (not (candidate '(11 10))))))
+         (not (candidate '(11 10)))
+         (check-random re03_6 candidate 50 3 '(10 11 12)))))
 
 (define c_re03_6
   (lambda (ns)
@@ -174,7 +231,8 @@
          (not (candidate '(10 30 40)))
          (not (candidate '(10 20 21 30 40)))
          (not (candidate '(10 21 30 40 50)))
-         (not (candidate '(10 20 30))))))
+         (not (candidate '(10 20 30)))
+         (check-random re03_7 candidate 50 6 '(10 11 20 30 40)))))
 
 (define c_re03_7
   (lambda (ns)
@@ -211,7 +269,8 @@
          (not (candidate '(10 20 21 30 40)))
          (not (candidate '(10 20 21 22 30 40)))
          (not (candidate '(10 20 30 40 50)))
-         (not (candidate '(10 21 22 30))))))
+         (not (candidate '(10 21 22 30)))
+         (check-random re03_8 candidate 50 7 '(10 11 20 30 40)))))
 
 (define c_re03_8
   (lambda (ns)
@@ -248,7 +307,8 @@
   (lambda (candidate)
     (and (candidate '())
          (not (candidate '(1)))
-         (not (candidate '(1 1))))))
+         (not (candidate '(1 1)))
+         (check-random re04_1 candidate 50 3 '(10 11)))))
 
 (define re04_1
   '(star (mt)))
@@ -269,7 +329,8 @@
          (candidate '(20 20))
          (candidate '(20 20 20))
          (not (candidate '(21)))
-         (not (candidate '(20 21))))))
+         (not (candidate '(20 21)))
+         (check-random re04_2 candidate 50 3 '(10 11)))))
 
 (define re04_2
   '(star (atom 20)))
@@ -294,6 +355,7 @@
          (candidate '(10 20 20 20 30 40 50))
          (not (candidate '(10 21 30 40 50)))
          (not (candidate '(10 20 21 30 40 50)))
+         (check-random re04_3 candidate 50 3 '(10 11))
          )))
 
 (define re04_3
@@ -335,6 +397,7 @@
          (candidate '(10 20 21 21 30))
          (not (candidate '(10 22 30)))
          (not (candidate '(10 20 21 20 22 30)))
+         (check-random re04_4 candidate 50 3 '(10 11))
          )))
 
 (define re04_4
@@ -371,6 +434,7 @@
          (candidate '(10 20 21 22 20 20 30))
          (not (candidate '(10 21 30)))
          (not (candidate '(10 20 21 20 22 30)))
+         (check-random re04_5 candidate 50 3 '(10 11))
          )))
 
 (define re04_5
@@ -417,7 +481,8 @@
          (candidate '(10 10 10 20 20 20))
          (not (candidate '(10 20 10)))
          (not (candidate '(20 10)))
-         (not (candidate '(11))) )))
+         (not (candidate '(11))) 
+         (check-random re04_6 candidate 50 3 '(10 11)))))
 
 (define re04_6
   '(seq (star (atom 10)) (star (atom 20))))
@@ -449,7 +514,8 @@
          (candidate '(10 10 10))
          (candidate '(20 10 10 20 20))
          (not (candidate '(10 20 11)))
-         (not (candidate '(11))))))
+         (not (candidate '(11)))
+         (check-random re04_7 candidate 50 3 '(10 11)))))
 
 (define re04_7
   '(star (disj (atom 10) (atom 20))))
