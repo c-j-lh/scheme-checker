@@ -294,7 +294,34 @@
 ;; clara
 (define check-letrec
   (lambda (bindings expression)
-    (printf "'check-letrec not implemented yet~n")))
+    (letrec ([visit
+              (lambda (bindings seen)
+                (cond
+                 [(null? bindings)
+                  #t]
+                 [(pair? bindings)
+                  (let ([binding (car bindings)])
+                    (cond
+                     [(proper-list-of-given-length? binding 2)
+                      (let ([name (car binding)]
+                            [lambda-abstraction (cadr binding)])
+                        (cond
+                         [(not (check-variable name))
+                          (warn "letrec binding name should be a variable): ~s~n~n" name)]
+                         [(member name seen)
+                          (warn "letrec must not have duplicate binding names: ~s~n~n" name)]
+                         [(or (check-lambda lambda-abstraction)
+                              (check-trace-lambda lambda-abstraction))
+                          (visit (cdr bindings) (cons name seen))]
+                         [else
+                          (warn "letrec must have a lambda abstraction as the binding value): ~s~n~n" lambda-abstraction)]))]
+                     [else
+                      (warn "letrec bindings must be a proper list of legnth 2: ~s~n~n" bindings)]))]
+                 [else
+                  (warn "letrec bindings must be a proper list: ~s~n~n" bindings)]))])
+      (and (visit bindings '())
+	   (check-expression expression)))))
+
 
 ;; kelly
 (define check-duplicates?
@@ -741,8 +768,38 @@
               '((let ([10]) x)))])
       (printf "Test let-star Binding without Name: ~s~n~n" b))
 
-
     (printf "~n~n~n=== check-letrec tests ===~n")
+    ;; <letrec-expression>  ::= (letrec ({[<variable> <lambda-abstraction>]}*) <expression>)
+    ;; empty bindings - VALID
+    (let ([b (check-letrec '() '(#t))])
+      (printf "Test check-letrec empty bindings: ~s~n~n" b))
+    ;; one binding - VALID
+    (let ([b (check-letrec '((x (lambda () 5))) '((x)))])
+      (printf "Test check-letrec one binding: ~s~n~n" b))
+    ;; multiple bindings - VALID
+    (let ([b (check-letrec '((x (lambda () 5)) (y (lambda () 2))) '((x)))])
+      (printf "Test check-letrec multiple bindings: ~s~n~n" b))
+    ;; duplicate binding names - INVALID
+    (let ([b (check-letrec '((x (lambda () 5)) (x (lambda () 2))) '((x)))])
+      (printf "Test check-letrec duplicate binding names: ~s~n~n" b))
+    ;; invalid binding list length - INVALID
+    (let ([b (check-letrec '((x (lambda () 0) y)) '((x)))])
+      (printf "Test check-letrec invalid binding lenth: ~s~n~n" b))
+    ;; binding name not a variable - INVALID
+    (let ([b (check-letrec '((1 (lambda () 5))) '((x)))])
+      (printf "Test check-letrec invalid binding name: ~s~n~n" b))
+    ;; binding has no name - INVALID
+    (let ([b (check-letrec '(((lambda () 5))) '(#t))])
+      (printf "Test check-letrec missing binding name: ~s~n~n" b))
+    ;; binding has no value - INVALID
+    (let ([b (check-letrec '((x)) '((x)))])
+      (printf "Test check-letrec missing binding value: ~s~n~n" b))
+    ;; binding value is not a lambda-abstraction - INVALID
+    (let ([b (check-letrec '((x 5)) '((x)))])
+      (printf "Test check-letrec invalid binding value: ~s~n~n" b))
+    ;; no expression - INVALID
+    (let ([b (check-letrec '((x (lambda () 5))) '())])
+      (printf "Test check-letrec missing expression: ~s~n~n" b))
 
 
     (printf "~n~n~n=== check-lambda and check-trace-lambda tests ===~n")
