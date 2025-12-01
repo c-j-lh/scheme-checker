@@ -1,5 +1,5 @@
-;;; week-12_compiled-regular-expressions.scm
-;;; Time-stamp: <2025-11-24 17:21:47 leheng>
+;;; group1-week-12.scm
+;;; Time-stamp: <2025-11-29 17:21:47 leheng>
 ;;; PLC 2025 - CS2104 2025-2026, Sem1 *)
 ;;; Olivier Danvy <danvy@nus.edu.sg>
 ;;; Group 1: Chuah Jia Jie <e0959959@u.nus.edu>; Yap Ho Wen <howenyap@u.nus.edu>; Yang Yaqi <e1522259@u.nus.edu>; Wang Aleah <e1518514@u.nus.edu>; Goussanou Clara <e1535596@u.nus.edu>; Zhang Kelly <e1518548@u.nus.edu>; Wu Lucy Shuai <e1521751@u.nus.edu>; Chieu Le Heng <e0454394@u.nus.edu>
@@ -13,7 +13,7 @@
 ;;;;;
 (load "group1-week-11.scm")
 
-;; return a random element from a list (python's `random.choice`)
+;; return a random element from a nonempty list (python's `random.choice`)
 (define rand-pick
   (lambda (lst)
     (list-ref lst (random (length lst)))))
@@ -30,7 +30,7 @@
       (letrec ([build
                 (lambda (i acc)
                   (if (= i len)
-                      (reverse acc)
+                      acc
                       (build (1+ i)
                              (cons (rand-int interesting) acc))))])
         (build 0 '())))))
@@ -61,7 +61,6 @@
 (define test_c_re03_1
   (lambda (candidate)
     (and (candidate '())
-         (not (candidate '(())))
          (not (candidate '(1)))
          (boolean=? (match4 re03_1 '()) (candidate '()))
          (boolean=? (match4 re03_1 '(())) (candidate '(())))
@@ -366,23 +365,23 @@
     (and (pair? ns)
          (= (car ns) 10)
          (let ([ns (cdr ns)])
-           (letrec ([loop (lambda (ns)
-                            (or (k ns)
-                                (and (pair? ns)
-                                     (= (car ns) 20)
-                                     (let ([ns (cdr ns)])
-                                       (loop ns)))))]
-                    [k (lambda (ns)
-                         (and (pair? ns)
-                              (= (car ns) 30)
-                              (let ([ns (cdr ns)])
-                                (and (pair? ns)
-                                     (= (car ns) 40)
-                                     (let ([ns (cdr ns)])
-                                       (and (pair? ns)
-                                            (= (car ns) 50)
-                                            (null? (cdr ns))))))))])
-             (loop ns))))))
+           (let ([k (lambda (ns)
+                      (and (pair? ns)
+                           (= (car ns) 30)
+                           (let ([ns (cdr ns)])
+                             (and (pair? ns)
+                                  (= (car ns) 40)
+                                  (let ([ns (cdr ns)])
+                                    (and (pair? ns)
+                                         (= (car ns) 50)
+                                         (null? (cdr ns))))))))])
+             (letrec ([loop (lambda (ns)
+                              (or (k ns)
+                                  (and (pair? ns)
+                                       (= (car ns) 20)
+                                       (let ([ns (cdr ns)])
+                                         (loop ns)))))])
+               (loop ns)))))))
 
 (unless (test_c_re04_3 c_re04_3)
   (printf "test_c_re04_3 failed"))

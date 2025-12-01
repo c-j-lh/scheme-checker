@@ -2,7 +2,7 @@
 ;;; Checker for a Scheme subset, based on
 ;;; https://delimited-continuation.github.io/CS2104/2025-2026_Sem1/midterm-project.html.
 ;;;
-;;; Time-stamp: <2025-11-03 20:00:00 leheng>
+;;; Time-stamp: <2025-12-01 20:00:00 leheng>
 ;;; PLC 2025 - CS2104 2025-2026, Sem1 *)
 ;;; Original template by Olivier Danvy <danvy@nus.edu.sg>, but heavily edited since.
 ;;; Chuah Jia Jie, Yap Ho Wen, Yang Yaqi, Wang Aleah, Goussanou Clara,
@@ -11,7 +11,7 @@
 ;;;;;;;;;;
 
 (define check-silently
-  #f)
+  #t)
 
 ;; printf the error message/warning
 ;; and then return #f (since it is now invalid)
@@ -162,49 +162,44 @@
 
 
 ;; lucy
-(define (check-case expression clauses)
-  (cond
-   ;; no clauses (invalid)
-   [(null? clauses)
-    (warn "case must have at least one clause and end with an `else` clause~n")]
+(define check-case
+  (lambda (e clauses)
+    (letrec ([check-quotations
+              (lambda (qs)
+                (cond
+                 [(null? qs) #t]
+                 [(pair? qs)
+                  (strict-and (check-quote (car qs))
+                              (check-quotations (cdr qs)))]
+                 [else
+                  (warn "not a valid list of quotations: ~s~n" qs)]))]
 
-   ;; process clauses and recurse
-   [else
-    (let ([clause (car clauses)]
-          [rest   (cdr clauses)])
-      (cond
-       ;; each clause must be a list
-       [(not (list? clause))
-        (warn "case clause must be a list: ~s~n" clause)]
+             [check-case-clause
+              (lambda (c)
+                (cond
+                 [(proper-list-of-given-length? c 2)
+                  (strict-and (check-quotations (car c))
+                              (check-expression (cadr c)))]
+                 [else
+                  (warn "not a valid case clause: ~s~n" c)]))]
 
-       ;; else must be last, only one body expression
-       [(eq? (car clause) 'else)
-        (cond
-         [(not (null? rest))
-          (warn "else clause must be last: ~s~n" clause)]
-         [(not (= (length clause) 2))
-          (warn "else clause must have exactly one expression: ~s~n" clause)]
-         [else
-          (and (check-expression expression)
-               (check-expression (cadr clause)))] )]
+             [visit
+              (lambda (curr remaining)
+                (cond
+                 [(null? remaining)
+                  (check-else-clause curr 'case)]
+                 [(pair? remaining)
+                  (if (and (pair? curr) (eq? (car curr) 'else))
+                      (warn "else clause must be last: ~s~n" curr)
+                      (strict-and (check-case-clause curr)
+                                  (visit (car remaining)
+                                         (cdr remaining))))]
+                 [else
+                  (warn "not a proper list of case clauses: ~s~n"
+                        remaining)]))])
 
-       ;; non-else clause (<quotations> <expression>)
-       [else
-        (cond
-         [(not (= (length clause) 2))
-          (warn "case clause must have exactly two parts (quotations and body): ~s~n" clause)]
-         [else
-          (let ([qs   (car clause)]
-                [body (cadr clause)])
-            (cond
-             [(not (list? qs))
-              (warn "case clause head must be a parenthesised list of quotations: ~s~n" clause)]
-             [(not (andmap check-quote qs))
-              (warn "case arguments must be quotations: ~s~n" qs)]
-             [else
-              (and (check-expression expression)
-                   (check-expression body)
-                   (check-case expression rest))]))])]))]))
+      (strict-and (check-expression e)
+                  (visit (car clauses) (cdr clauses))))))
 
 
 ;; howen
@@ -307,21 +302,40 @@
                             [lambda-abstraction (cadr binding)])
                         (cond
                          [(not (check-variable name))
-                          (warn "letrec binding name should be a variable): ~s~n~n" name)]
+                          (warn "letrec binding name should be a variable: ~s~n~n" name)]
                          [(member name seen)
                           (warn "letrec must not have duplicate binding names: ~s~n~n" name)]
-                         [(or (check-lambda lambda-abstraction)
-                              (check-trace-lambda lambda-abstraction))
+                         [(or (is-valid-lambda? lambda-abstraction)
+                              (is-valid-trace-lambda? lambda-abstraction))
                           (visit (cdr bindings) (cons name seen))]
                          [else
-                          (warn "letrec must have a lambda abstraction as the binding value): ~s~n~n" lambda-abstraction)]))]
+                          (warn "letrec must have a valid lambda abstraction as the binding value: ~s~n~n" lambda-abstraction)]))]
                      [else
-                      (warn "letrec bindings must be a proper list of legnth 2: ~s~n~n" bindings)]))]
+                      (warn "letrec bindings must be a proper list of length 2: ~s~n~n" bindings)]))]
                  [else
                   (warn "letrec bindings must be a proper list: ~s~n~n" bindings)]))])
       (and (visit bindings '())
-	   (check-expression expression)))))
+           (check-expression expression)))))
 
+
+(define is-valid-lambda?
+  (lambda (p)
+    (and (proper-list-of-given-length? p 3)
+         (let ([procedure-name (car p)]
+               [lambda-formals (cadr p)]
+               [lambda-expression (caddr p)])
+           (and (equal? procedure-name 'lambda)
+                (check-lambda lambda-formals lambda-expression))))))
+
+(define is-valid-trace-lambda?
+  (lambda (p)
+    (and (proper-list-of-given-length? p 4)
+         (let ([procedure-name (car p)]
+               [lambda-variable (cadr p)]
+               [lambda-formals (caddr p)]
+               [lambda-expression (cadddr p)])
+           (and (equal? procedure-name 'trace-lambda)
+		(check-trace-lambda lambda-variable lambda-formals lambda-expression))))))
 
 ;; kelly
 (define check-duplicates?
@@ -349,34 +363,20 @@
 
      [(symbol? formals)
       (if (keyword? formals)
-          (begin
-            (unless check-silently
-              (printf "not a proper formal parameter: ~s~n" formals))
-            #f)
+          (warn "not a proper formal parameter: ~s~n" formals)
           #t)]
 
      [(pair? formals)
       (let* ([head (car formals)]
              [tail (cdr formals)])
-        (and (if (or (not (symbol? head))
-                     (keyword? head))
-                 (begin
-                   (unless check-silently
-                     (printf "not a proper formal parameter: ~s~n" head))
-                   #f)
-                 #t)
+        (and (or (check-variable head)
+                 (warn "not a proper formal parameter: ~s~n" head))
              (if (check-duplicates? head tail)
-                 (begin
-                   (unless check-silently
-                     (printf "duplicates found: ~s~n" head))
-                   #f)
+                 (warn "duplicates found: ~s~n" head)
                  #t)
              (check-lambda-formals tail)))]
      [else
-      (begin
-        (unless check-silently
-          (printf "check-lambda-formals -- unrecognized input: ~s~n" formals))
-        #f)])))
+      (warn "check-lambda-formals -- unrecognized input: ~s~n" formals)])))
 
 
 (define check-lambda
@@ -387,13 +387,9 @@
 
 (define check-trace-lambda
   (lambda (variable lambda-formals expression)
-    (if (or (not (symbol? variable))
-            (keyword? variable))
-        (begin
-          (printf "Error: trace-lambda variable ~a is not a valid symbol.~n" variable)
-          #f)
-        #t)
-    (check-lambda lambda-formals expression)))
+    (if (not (check-variable variable))
+        (warn "Error: trace-lambda variable ~a is not a valid symbol.~n" variable)
+        (check-lambda lambda-formals expression))))
 
 ;; yaqi
 (define check-application-operands
@@ -576,73 +572,87 @@
 
 ;;;;;;;;
 
-(define check-t ; correct answer should be #t
-  (lambda (result)
-    (if result 'correct 'wrong)))
+(define check-true ; checks a test case where the correct answer should be #t
+  (lambda (message result)
+    (if check-silently
+      (unless result 
+        (printf (string-append "failed: " message) result))
+      (printf (if result message (string-append "failed: " message)) result))))
+    
+(define check-false ; checks a test case where the correct answer should be #f
+  (lambda (message result)
+    (if check-silently
+      (and result 
+           (printf (string-append "failed: " message) result))
+      (printf (if result (string-append "failed: " message) message) result))))
 
-(unless check-silently
-  (begin
+
     (let ([cycle '(0 1)])
       (begin
-        (printf "~n~n~n=== check-expression with cycles ===~n")
+        (unless check-silently
+          (printf "~n~n~n=== check-expression with cycles ===~n"))
         (set-cdr! cycle cycle)
         (let ([b (check-program
                   (list (list cycle 1)))])
-          (printf "-- Test case 5.1: ~s~n" b))
+          (check-false "-- Test case 5.1: ~s~n" b))
         (let ([b (check-program
                   (list (list '+ cycle)))])
-          (printf "-- Test case 5.2: ~s~n" b))
+          (check-false "-- Test case 5.2: ~s~n" b))
         (let ([b (check-program
                   (list cycle))])
-          (printf "-- Test case 5.3: ~s~n" b))
+          (check-false "-- Test case 5.3: ~s~n" b))
 
-        (printf "~n~n~n=== indirectly: check-quote tests ===~n")
+        (unless check-silently
+          (printf "~n~n~n=== indirectly: check-quote tests ===~n"))
         (let* ([e '(quote a)] [r (check-expression e)])
-          (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'correct 'wrong)))
+          (check-true "-- Test case: ~s" r))
         (let* ([e '(quote (a . b))] [r (check-expression e)])
-          (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'correct 'wrong)))
+          (check-true "-- Test case: ~s" r))
         (let* ([e '(quote (#t . (3 . (#\a . ""))))] [r (check-expression e)])
-          (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'correct 'wrong)))
+          (check-true "-- Test case: ~s" r))
         (let* ([e '(quote (#t . cycle))] [r (check-expression e)])
-          (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'correct 'wrong)))
+          (check-true "-- Test case: ~s" r))
         (let* ([e '(quote (list cycle))] [r (check-expression e)])
-          (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'correct 'wrong)))
+          (check-true "-- Test case: ~s" r))
         (let* ([e (lambda (x) x)] [r (check-quote e)])
-          (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'wrong 'correct)))
+          (check-false "-- Test case: ~s" r))
         (let* ([e '(quote (#t . (3 . (#\a . cycle))))] [r (check-expression e)])
-          (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'correct 'wrong)))))
+          (check-true "-- Test case: ~s" r))))
 
 
-    (printf "~n~n~n=== check-program ===~n")
+    (unless check-silently
+      (printf "~n~n~n=== check-program ===~n"))
     (let ([b (check-program
               '((trace-lambda 3 2 5)))])
-      (printf "-- Test case 6: ~s~n" b))
+      (check-false "-- Test case 6: ~s~n" b))
     (let ([b (check-program
               '((trace-lambda 3 2 5 5)))])
-      (printf "-- Test case 7: ~s~n" b))
+      (check-false "-- Test case 7: ~s~n" b))
 
-    (printf "~n~n~n=== Prof Danvy's general tests ===~n")
+    (unless check-silently
+      (printf "~n~n~n=== Prof Danvy's general tests ===~n"))
     (let* ([e '(define foo . foo)] [r (check-expression e)])
-      (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'wrong 'correct)))
+      (check-false "-- Test case: ~s~n" r))
     (let* ([e '(+ . foo)] [r (check-expression e)])
-      (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'wrong 'correct)))
+      (check-false "-- Test case: ~s~n" r))
     (let* ([e '(if (case) (case) 0)] [r (check-expression e)])
-      (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'wrong 'correct)))
+      (check-false "-- Test case: ~s~n" r))
     (let* ([e '(unless (a . b) (c . d))] [r (check-expression e)]) ; should check both incorrect expressions
-      (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'wrong 'correct)))
+      (check-false "-- Test case: ~s~n" r))
     (let* ([e '(case . foo)] [r (check-expression e)])
-      (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'wrong 'correct)))
+      (check-false "-- Test case: ~s~n" r))
     (let* ([e '()] [r (check-expression e)])
-      (printf "-- Test case ~s: ~s (~s)~n~n" e r (if r 'wrong 'correct)))
+      (check-false "-- Test case: ~s~n" r))
 
 
-    (printf "~n~n~n=== Yaqi's old general tests ===~n")
+    (unless check-silently
+      (printf "~n~n~n=== Yaqi's old general tests ===~n"))
     (let ([b (check-program
               '((f 10)
                 (g (f 20))
                 (define f (lambda (x) x))
                 (define g (lambda (x) (f x)))))])
-      (printf "-- Test case -1: ~s~n~n" b))
+      (check-true "-- Test case: ~s~n" b))
     ;; test case to check expression types
     (let ([b (check-program
               '(;; numbers
@@ -657,219 +667,265 @@
                 ;; strings
                 (define s1 "hello")
                 (define s2 "")))])
-      (printf "-- Test case 0: ~s~n~n" b))
+      (check-true "-- Test case: ~s~n" b))
     ;; test case to check If Expression
     (let ([b (check-program
               '((if #t 1 2)
                 (if (and 1 2) 'yes 'no)))])
-      (printf "-- Test case 1: ~s~n~n" b))
+      (check-true "-- Test case: ~s~n" b))
     ;; test case to check And/Or Expressions
     (let ([b (check-program
               '((and #t #t)
                 (or #f #t)))])
-      (printf "-- Test case 2: ~s~n~n" b))
+      (check-true "-- Test case: ~s~n" b))
     ;;  test case to check Unless Expression
     (let ([b (check-program
               '((unless #f 'ok)))])
-      (printf "-- Test case 3: ~s~n~n" b))
+      (check-true "-- Test case: ~s~n" b))
     ;;  test case to check Quote Expression
     (let ([b (check-program
               '((quote hello)
                 (quote (1 2 3))))])
-      (printf "-- Test case 4: ~s~n~n" b))
+      (check-true "-- Test case: ~s~n" b))
     ;; test case for Valid cond - has else at end
     (let ([b (check-program
               '((cond
                  [#t 1]
                  [#f 2]
                  [else 3])))])
-      (printf "-- Test case 5: ~s~n" b))
+      (check-true "-- Test case: ~s~n" b))
 
 
 
 
-    (printf "~n~n~n=== check-cond tests ===~n")
+    (unless check-silently
+      (printf "~n~n~n=== check-cond tests ===~n"))
     (let ([b (check-cond '([else 3]))])
-      (printf "Test 1: Valid cond with else at the end ~s~n~n" b))
+      (check-true "-- Test 1: Valid cond with else at the end ~s~n" b))
     (let ([b (check-cond '([#t] [else #f]))])
-      (printf "Test 2: Cond with single expression clauses only  ~s~n~n" b))
+      (check-true "Test 2: Cond with single expression clauses only  ~s~n~n" b))
     (let ([b (check-cond '([#t 1] [else #f]))])
-      (printf "Test 3: Cond with double expression clauses ~s~n~n" b))
+      (check-true "Test 3: Cond with double expression clauses ~s~n~n" b))
     (let ([b (check-cond '([#t => (lambda (x) x)]
                            [#f => (lambda (y) y)]
                            [else 42]))])
-      (printf "Test 4: Cond with => expression ~s~n~n" b))
+      (check-true "Test 4: Cond with => expression ~s~n~n" b))
     (let ([b (check-cond '([#t] [#f]))])
-      (printf "Test 5: Cond with else not last will fail ~s~n~n" b))
+      (check-false "Test 5: Cond with else not last will fail ~s~n~n" b))
     (let ([b (check-cond '([#t 1] [else 2] [else 3]))])
-      (printf "Test 6: Cond with >1 elses will fail ~s~n~n" b))
+      (check-false "Test 6: Cond with >1 elses will fail ~s~n~n" b))
     (let ([b (check-cond '([else 2 3]))])
-      (printf "Test 7: Else with multiple expressions will fail ~s~n~n" b))
+      (check-false "Test 7: Else with multiple expressions will fail ~s~n~n" b))
     (let ([b (check-cond '([#t 1 2] [else #f]))])
-      (printf "Test 8: Cond with invalid syntax will fail ~s~n~n" b))
+      (check-false "Test 8: Cond with invalid syntax will fail ~s~n~n" b))
     (let ([b (check-cond '(#t ([#f 2]) [else #f]))])
-      (printf "Test 9: Cond clause without parentheses will fail ~s~n~n" b))
-
-    (printf "~n~n~n=== check-case tests ===~n")
+      (check-false "Test 9: Cond clause without parentheses will fail ~s~n~n" b))
 
 
-    (printf "~n~n~n=== check-let tests ===~n")
+    
+    (unless check-silently
+      (printf "~n~n~n=== check-case tests ===~n"))
+    ;; check-case test case: one clause, one else (valid)
+    (let ([b (check-case 'x
+                         '((else a)))])
+      (check-true "Test check-case one clause, one else: ~s~n~n" b))
+    ;; check-case test case: multiple clause, one else (valid)
+    (let ([b (check-case 'x
+                         '(((1) a) ((2) b) (else c)))])
+      (check-true "Test check-case multiple clause, one else: ~s~n~n" b))
+    ;; check-case test case: many clause, no else (invalid)
+    (let ([b (check-case 'x
+                         '(((1) a) ((2) b) ((3) c) ((4) d)))])
+      (check-false "Test check-case many clause, no else: ~s~n~n" b))
+    ;; check-case test case: only non else (invalid)
+    (let ([b (check-case 'x
+                         '(((1) a)))])
+      (check-false "Test check-case only non else : ~s~n~n" b))
+    ;; check-case test case: duplicate else (invalid)
+    (let ([b (check-case 'x
+                         '((else b1) (else b2)))])
+      (check-false "Test check-case duplicate else: ~s~n~n" b))
+    ;; check-case test case: else not last (invalid)
+    (let ([b (check-case 'x
+                         '(((1) a) (else c) ((2) b)))])
+      (check-false "Test check-case multiple clause, else not last: ~s~n~n" b))
+    ;; check-case test case: else multiple expression (invalid)
+    (let ([b (check-case 'x
+                         '(((1) a) (else a b c)))])
+      (check-false "Test check-case else multiple expression: ~s~n~n" b))
+    ;; check-case test case: else no body (invalid)
+    (let ([b (check-case 'x
+                         '(((1) a) (else)))])
+      (check-false "Test check-case else no body: ~s~n~n" b))
+
+    
+
+    (unless check-silently
+      (printf "~n~n~n=== check-let tests ===~n"))
     ;; valid
     (let ([b (check-program
               '((let () 42)))])
-      (printf "Test case 8: ~s~n~n" b))
+      (check-true "Test case 8: ~s~n~n" b))
     ;; valid
     (let ([b (check-program
               '((let ([x 1] [y 2]) x)))])
-      (printf "Test case 9: ~s~n~n" b))
+      (check-true "Test case 9: ~s~n~n" b))
     ;; invalid, binding name should be a variable
     (let ([b (check-program
               '((let ([1 2]) 1)))])
-      (printf "Test case 10: ~s~n~n" b))
+      (check-false "Test case 10: ~s~n~n" b))
     ;; invalid, binding names must be distinct
     (let ([b (check-program
               '((let ([x 1] [x 2]) x)))])
-      (printf "Test case 11: ~s~n~n" b))
+      (check-false "Test case 11: ~s~n~n" b))
     ;; invalid, binding must have a value
     (let ([b (check-program
               '((let ([x]) x)))])
-      (printf "Test case 12: ~s~n~n" b))
+      (check-false "Test case 12: ~s~n~n" b))
     ;; invalid, binding must have a name
     (let ([b (check-program
               '((let ([1]) x)))])
-      (printf "Test case 13: ~s~n~n" b))
+      (check-false "Test case 13: ~s~n~n" b))
 
 
+    
 
-    (printf "~n~n~n=== check-letstar tests ===~n")
+    (unless check-silently
+      (printf "~n~n~n=== check-letstar tests ===~n"))
     ;; Valid
     (let ([b (check-program
               '((let* () 10)))])
-      (printf "Test let-star Empty Bindings: ~s~n~n" b))
+      (check-true "Test let-star Empty Bindings: ~s~n~n" b))
     ;; Valid
     (let ([bb (check-program
                '((let* ([x 10] [y 20]) x)))])
-      (printf "Test let-star Multiple Bindings: ~s~n~n" bb))
-
+      (check-true "Test let-star Multiple Bindings: ~s~n~n" bb))
     ;; Valid
     (let ([b (check-program
               '((let* ([x 10] [x 20]) x)))])
-      (printf "Test let-star Non-Distinct Bindings: ~s~n~n" b))
+      (check-true "Test let-star Non-Distinct Bindings: ~s~n~n" b))
     ;; Invalid, Binding Name is not a Variable
     (let ([b (check-program
               '((let* ([10 20]) 10)))])
-      (printf "Test let-star Invalid Binding Name: ~s~n~n" b))
+      (check-false "Test let-star Invalid Binding Name: ~s~n~n" b))
     ;; Invalid, Binding must have a Value
     (let ([b (check-program
               '((let ([x]) x)))])
-      (printf "Test let-star Binding without Value: ~s~n~n" b))
+      (check-false "Test let-star Binding without Value: ~s~n~n" b))
     ;; Invalid, Binding must have Name
     (let ([b (check-program
               '((let ([10]) x)))])
-      (printf "Test let-star Binding without Name: ~s~n~n" b))
+      (check-false "Test let-star Binding without Name: ~s~n~n" b))
 
-    (printf "~n~n~n=== check-letrec tests ===~n")
+
+    (unless check-silently
+      (printf "~n~n~n=== check-letrec tests ===~n"))
     ;; <letrec-expression>  ::= (letrec ({[<variable> <lambda-abstraction>]}*) <expression>)
     ;; empty bindings - VALID
     (let ([b (check-letrec '() '(#t))])
-      (printf "Test check-letrec empty bindings: ~s~n~n" b))
+      (check-true "Test check-letrec empty bindings: ~s~n~n" b))
     ;; one binding - VALID
     (let ([b (check-letrec '((x (lambda () 5))) '((x)))])
-      (printf "Test check-letrec one binding: ~s~n~n" b))
+      (check-true "Test check-letrec one binding: ~s~n~n" b))
     ;; multiple bindings - VALID
     (let ([b (check-letrec '((x (lambda () 5)) (y (lambda () 2))) '((x)))])
-      (printf "Test check-letrec multiple bindings: ~s~n~n" b))
+      (check-true "Test check-letrec multiple bindings: ~s~n~n" b))
     ;; duplicate binding names - INVALID
     (let ([b (check-letrec '((x (lambda () 5)) (x (lambda () 2))) '((x)))])
-      (printf "Test check-letrec duplicate binding names: ~s~n~n" b))
+      (check-false "Test check-letrec duplicate binding names: ~s~n~n" b))
     ;; invalid binding list length - INVALID
     (let ([b (check-letrec '((x (lambda () 0) y)) '((x)))])
-      (printf "Test check-letrec invalid binding lenth: ~s~n~n" b))
+      (check-false "Test check-letrec invalid binding lenth: ~s~n~n" b))
     ;; binding name not a variable - INVALID
     (let ([b (check-letrec '((1 (lambda () 5))) '((x)))])
-      (printf "Test check-letrec invalid binding name: ~s~n~n" b))
+      (check-false "Test check-letrec invalid binding name: ~s~n~n" b))
     ;; binding has no name - INVALID
     (let ([b (check-letrec '(((lambda () 5))) '(#t))])
-      (printf "Test check-letrec missing binding name: ~s~n~n" b))
+      (check-false "Test check-letrec missing binding name: ~s~n~n" b))
     ;; binding has no value - INVALID
     (let ([b (check-letrec '((x)) '((x)))])
-      (printf "Test check-letrec missing binding value: ~s~n~n" b))
+      (check-false "Test check-letrec missing binding value: ~s~n~n" b))
     ;; binding value is not a lambda-abstraction - INVALID
     (let ([b (check-letrec '((x 5)) '((x)))])
-      (printf "Test check-letrec invalid binding value: ~s~n~n" b))
+      (check-false "Test check-letrec invalid binding value: ~s~n~n" b))
     ;; no expression - INVALID
     (let ([b (check-letrec '((x (lambda () 5))) '())])
-      (printf "Test check-letrec missing expression: ~s~n~n" b))
+      (check-false "Test check-letrec missing expression: ~s~n~n" b))
 
 
-    (printf "~n~n~n=== check-lambda and check-trace-lambda tests ===~n")
+    (unless check-silently
+      (printf "~n~n~n=== check-lambda and check-trace-lambda tests ===~n"))
     ;; Proper list (valid)
-    (let ([b (check-lambda '(x y z) '())])
-      (printf "Proper list (valid): ~s~n~n" b))
+    (let ([b (check-lambda '(x y z) 1)])
+      (check-true "Proper list (valid): ~s~n~n" b))
     ;; Proper list (duplicate var)
-    (let ([b (check-lambda '(x y x) '())])
-      (printf "Proper list (duplicate var): ~s~n~n" b))
+    (let ([b (check-lambda '(x y x) 1)])
+      (check-false "Proper list (duplicate var): ~s~n~n" b))
     ;; Proper list (non-symbol)
-    (let ([b (check-lambda '(x 3 z) '())])
-      (printf "Proper list (non-symbol): ~s~n~n" b))
+    (let ([b (check-lambda '(x 3 z) 1)])
+      (check-false "Proper list (non-symbol): ~s~n~n" b))
     ;; Improper list (valid dotted tail)
-    (let ([b (check-lambda '(x y . z) '())])
-      (printf "Improper list (valid dotted tail): ~s~n~n" b))
+    (let ([b (check-lambda '(x y . z) 1)])
+      (check-true "Improper list (valid dotted tail): ~s~n~n" b))
     ;; Improper list (duplicate in tail)
-    (let ([b (check-lambda '(x x . y) '())])
-      (printf "Improper list (duplicate in tail): ~s~n~n" b))
+    (let ([b (check-lambda '(x x . y) 1)])
+      (check-false "Improper list (duplicate in tail): ~s~n~n" b))
     ;; Improper list (non-symbol tail)
-    (let ([b (check-lambda '(x y . 3) '())])
-      (printf "Improper list (non-symbol tail): ~s~n~n" b))
-    ;; Improper list (dotted tail empty list)
-    (let ([b (check-lambda '(x . ()) '())])
-      (printf "Improper list (dotted tail empty list): ~s~n~n" b))
+    (let ([b (check-lambda '(x y . 3) 1)])
+      (check-false "Improper list (non-symbol tail): ~s~n~n" b))
+    ;; Improper list (dotted tail empty list), equivalent to '(x)
+    (let ([b (check-lambda '(x . ()) 1)])
+      (check-true "Improper list (dotted tail empty list): ~s~n~n" b))
     ;; Single symbol
-    (let ([b (check-lambda 'x '())])
-      (printf "Single symbol: ~s~n~n" b))
+    (let ([b (check-lambda 'x 1)])
+      (check-true "Single symbol: ~s~n~n" b))
     ;; Invalid number formals
-    (let ([b (check-lambda 42 '())])
-      (printf "Invalid number formals: ~s~n~n" b))
+    (let ([b (check-lambda 42 1)])
+      (check-false "Invalid number formals: ~s~n~n" b))
     ;; Invalid string formals
-    (let ([b (check-lambda "x" '())])
-      (printf "Invalid string formals: ~s~n~n" b))
+    (let ([b (check-lambda "x" 1)])
+      (check-false "Invalid string formals: ~s~n~n" b))
     ;; valid trace-lambda: valid symbol variable and valid formals
     (let ([b (check-trace-lambda 'trace1 '(x y) '(+ x y))])
-      (printf "Test trace-lambda valid: ~s~n~n" b))
+      (check-true "Test trace-lambda valid: ~s~n~n" b))
     ;; invalid trace-lambda: variable is not a symbol (number)
     (let ([b (check-trace-lambda 42 '(x y) '(+ x y))])
-      (printf "Test trace-lambda invalid variable number: ~s~n~n" b))
+      (check-false "Test trace-lambda invalid variable number: ~s~n~n" b))
     ;; invalid trace-lambda: variable is not a symbol (string)
     (let ([b (check-trace-lambda "trace" '(x) '(+ x 1))])
-      (printf "Test trace-lambda invalid variable string: ~s~n~n" b))
-    ;; invalid trace-lambda: duplicate variable in formals (uses your check-lambda to detect)
+      (check-false "Test trace-lambda invalid variable string: ~s~n~n" b))
+    ;; invalid trace-lambda: duplicate variable in formals (uses our check-lambda to detect)
     (let ([b (check-trace-lambda 'trace2 '(x x) '(+ x x))])
-      (printf "Test trace-lambda duplicate vars in formals: ~s~n~n" b))
+      (check-false "Test trace-lambda duplicate vars in formals: ~s~n~n" b))
     ;; valid trace-lambda: improper list in formals (valid dotted tail)
     (let ([b (check-trace-lambda 'trace3 '(x . y) '(+ x y))])
-      (printf "Test trace-lambda valid improper formals: ~s~n~n" b))
+      (check-true "Test trace-lambda valid improper formals: ~s~n~n" b))
     ;; invalid trace-lambda: improper list invalid dotted tail
     (let ([b (check-trace-lambda 'trace4 '(x . 3) '(+ x 3))])
-      (printf "Test trace-lambda invalid improper dotted tail: ~s~n~n" b))
+      (check-false "Test trace-lambda invalid improper dotted tail: ~s~n~n" b))
 
 
-    (printf "~n~n~n=== check-application-operands tests ===~n")
+    (unless check-silently
+      (printf "~n~n~n=== check-application-operands tests ===~n"))
     (let ([result (check-application-operands '(42 #t "hello" #\a))])
-      (printf "-- Test (int boolean string): ~s~n" result))
+      (check-true "-- Test (int boolean string): ~s~n" result))
     (let ([result (check-application-operands '())])
-      (printf "-- Test (null): ~s~n" result))
+      (check-true "-- Test (null): ~s~n" result))
     (let ([result (check-application-operands '((quote hello) (quote (1 2 3)) (quote symbol)))])
-      (printf "-- Test (Quoted expressions): ~s~n" result))
+      (check-true "-- Test (Quoted expressions): ~s~n" result))
     (let ([result (check-application-operands '((time (+ 1 2)) (time (* 3 4))))])
-      (printf "-- Test (Time expressions): ~s~n" result))
+      (check-true "-- Test (Time expressions): ~s~n" result))
     (let ([result (check-application-operands '((if #t 1 2) (if #f "yes" "no")))])
-      (printf "-- Test (If expressions): ~s~n" result))
+      (check-true "-- Test (If expressions): ~s~n" result))
 
     (let* ([e '((1 . 2) (3 . 4))] [result (check-application-operands e)])
-      (printf "-- Test case ~s: ~s (~s)~n~n" e result (check-t result)))
+      (check-false  "-- Test case: ~s~n~n" result))
 
-
-    (printf "Checking itself: ~s~n" (check-file "midterm-project.scm"))))
+    (unless check-silently
+      (begin
+        (newline)
+        (newline)))
+    (check-true "Checking itself: ~s~n" (check-file "midterm-project.scm"))
 
 
 

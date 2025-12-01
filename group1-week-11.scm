@@ -1,5 +1,5 @@
-;;; week-11_matching-regular-expressions.scm
-;;; Time-stamp: <2025-11-24 17:21:47 leheng>
+;;; group1-week-11.scm
+;;; Time-stamp: <2025-11-29 17:21:47 leheng>
 ;;; PLC 2025 - CS2104 2025-2026, Sem1 *)
 ;;; Olivier Danvy <danvy@nus.edu.sg>
 ;;; Group 1: Chuah Jia Jie <e0959959@u.nus.edu>; Yap Ho Wen <howenyap@u.nus.edu>; Yang Yaqi <e1522259@u.nus.edu>; Wang Aleah <e1518514@u.nus.edu>; Goussanou Clara <e1535596@u.nus.edu>; Zhang Kelly <e1518548@u.nus.edu>; Wu Lucy Shuai <e1521751@u.nus.edu>; Chieu Le Heng <e0454394@u.nus.edu>
@@ -186,7 +186,9 @@
                                 #f)
                             #f)]
                        [(is-any? re)
-                        (and (pair? ns) (cdr ns))]
+                        (if (pair? ns)
+                            (cdr ns)
+                            #f)]
                        [(is-seq? re)
                         (let ([nsp (visit (seq-1 re) ns)])
                           (if nsp
@@ -418,8 +420,7 @@
                           (seq (disj (disj (atom 1) (atom 2))
                                      (disj (atom 3) (atom 4)))
                                (atom 5)))
-                    '(0 3 5))
-         )))
+                    '(0 3 5)))))
 
 (define negative-unit-tests-for-match3
   (lambda (candidate)
